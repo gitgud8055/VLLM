@@ -95,7 +95,7 @@ class EngineCore:
         self.vllm_config = vllm_config
         if is_global_first_rank():
             logger.info(
-                "Initializing a V1 LLM engine (v%s) with config: %s",
+                "Initializing a V1 LLM engine (v%s) with config GG Pro VVVIP: %s",
                 VLLM_VERSION,
                 vllm_config,
             )

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from vllm.distributed.parallel_state import get_dp_group
+from vllm.model_executor.layers.fused_moe.config import FusedMoEParallelConfig
 from collections.abc import Iterable
 
 import torch
@@ -293,6 +295,8 @@ class GptOssModel(nn.Module):
         self,
         ep_rank_end: int,
         ep_rank_start: int,
+        tp_rank: int,
+        tp_size: int,
         heads_per_rank: int,
         head_start: int,
         weights: Iterable[tuple[str, torch.Tensor]],
@@ -305,8 +309,8 @@ class GptOssModel(nn.Module):
         use_ep = self.parallel_config.enable_expert_parallel
         num_experts = self.config.num_local_experts
 
-        tp_rank = get_tensor_model_parallel_rank()
-        tp_size = get_tensor_model_parallel_world_size()
+        # tp_rank = get_tensor_model_parallel_rank()
+        # tp_size = get_tensor_model_parallel_world_size()
 
         intermediate_size = self.config.intermediate_size
         intermediate_size_block = intermediate_size // mxfp4_block
@@ -476,8 +480,10 @@ class GptOssModel(nn.Module):
 
     def _load_weights_other(
         self,
-        ep_rank_start: int,
         ep_rank_end: int,
+        ep_rank_start: int,
+        tp_rank: int,
+        tp_size: int,
         heads_per_rank: int,
         head_start: int,
         weights: Iterable[tuple[str, torch.Tensor]],
@@ -488,8 +494,8 @@ class GptOssModel(nn.Module):
 
         use_ep = self.parallel_config.enable_expert_parallel
 
-        tp_rank = get_tensor_model_parallel_rank()
-        tp_size = get_tensor_model_parallel_world_size()
+        # tp_rank = get_tensor_model_parallel_rank()
+        # tp_size = get_tensor_model_parallel_world_size()
 
         intermediate_size = self.config.intermediate_size
         per_rank_intermediate_size = cdiv(intermediate_size, tp_size)
@@ -524,6 +530,15 @@ class GptOssModel(nn.Module):
                     narrow_weight = weight[:, tp_rank_start:tp_rank_end, :]
                 narrow_weight = narrow_weight.permute(0, 2, 1).contiguous()
                 param = params_dict[name]
+                print("Shape of narro_weight: ", narrow_weight.shape)
+                print("Shape of param: ", param.shape)
+                print("EP Ranks: ", ep_rank_start, ep_rank_end)
+                print("tp_rank: ", tp_rank)
+                print("tp_size: ", tp_size)
+                print("tp_rank_start: ", tp_rank_start)
+                print("tp_rank_end: ", tp_rank_end)
+                print("per_rank_intermediate_size: ", per_rank_intermediate_size)
+                print("intermediate_size: ", intermediate_size)
 
                 param.copy_(narrow_weight)
                 loaded_params.add(name)
@@ -595,8 +610,17 @@ class GptOssModel(nn.Module):
         heads_per_rank = self.config.num_attention_heads // tp_size
         head_start = tp_rank * heads_per_rank
 
-        ep_size = get_ep_group().world_size
-        ep_rank = get_ep_group().rank
+        dp_size = get_dp_group().world_size
+        config = FusedMoEParallelConfig.make(
+            tp_size_=tp_size,
+            dp_size_=dp_size,
+            vllm_parallel_config=self.parallel_config
+        )
+
+        ep_size = config.ep_size
+        ep_rank = config.ep_rank
+        tp_rank = config.tp_rank
+        tp_size = config.tp_size
         num_experts = self.config.num_local_experts
         experts_per_rank = num_experts // ep_size
         ep_rank_start = ep_rank * experts_per_rank
@@ -611,6 +635,8 @@ class GptOssModel(nn.Module):
             return self._load_weights_mxfp4(
                 ep_rank_end,
                 ep_rank_start,
+                tp_rank,
+                tp_size,
                 heads_per_rank,
                 head_start,
                 weights,
@@ -620,6 +646,8 @@ class GptOssModel(nn.Module):
             return self._load_weights_other(
                 ep_rank_end,
                 ep_rank_start,
+                tp_rank,
+                tp_size,
                 heads_per_rank,
                 head_start,
                 weights,
