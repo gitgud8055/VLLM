@@ -528,19 +528,20 @@ class ParallelConfig:
     #
     @property
     def use_sequence_parallel_moe(self) -> bool:
-        return (
-            self.all2all_backend
-            in (
-                "allgather_reducescatter",
-                "deepep_high_throughput",
-                "deepep_low_latency",
-                "mori",
-                "nixl_ep",
-            )
-            and self.enable_expert_parallel
-            and self.tensor_parallel_size > 1
-            and self.data_parallel_size > 1
-        )
+        return False
+        # return (
+        #     self.all2all_backend
+        #     in (
+        #         "allgather_reducescatter",
+        #         "deepep_high_throughput",
+        #         "deepep_low_latency",
+        #         "mori",
+        #         "nixl_ep",
+        #     )
+        #     and self.enable_expert_parallel
+        #     and self.tensor_parallel_size > 1
+        #     and self.data_parallel_size > 1
+        # )
 
     @property
     def node_rank_within_dp(self) -> int:
