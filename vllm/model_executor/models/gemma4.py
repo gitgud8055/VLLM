@@ -1590,6 +1590,17 @@ class Gemma4ForCausalLM(
         self.num_shared_experts = 0
         self.num_redundant_experts = 0
 
+    def update_physical_experts_metadata(
+        self,
+        num_physical_experts: int,
+        num_local_physical_experts: int,
+    ) -> None:
+        self.num_physical_experts = num_physical_experts
+        self.num_local_physical_experts = num_local_physical_experts
+        self.num_redundant_experts = (
+            num_physical_experts - self.num_logical_experts
+        )
+
     def embed_input_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.model.embed_input_ids(input_ids)
 

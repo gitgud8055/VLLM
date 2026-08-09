@@ -921,6 +921,7 @@ class MixtureOfExperts(Protocol):
 
 
 def is_mixture_of_experts(model: object) -> TypeIs[MixtureOfExperts]:
+    print("Test is_mixture_of_experts", isinstance(model, MixtureOfExperts), getattr(model, "num_moe_layers", 0) > 0)
     return (
         isinstance(model, MixtureOfExperts) and getattr(model, "num_moe_layers", 0) > 0
     )

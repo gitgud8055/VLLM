@@ -14,6 +14,7 @@ processor inserts ``mm:ss`` timestamps between frames so the model can
 reason about temporal order.
 """
 
+from vllm.model_executor.models.interfaces import MixtureOfExperts
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Annotated, Any, Literal
@@ -917,6 +918,7 @@ class Gemma4ForConditionalGeneration(
     nn.Module,
     SupportsMultiModal,
     SupportsPP,
+    MixtureOfExperts,
     SupportsLoRA,
     SupportsEagle3,
 ):
@@ -1024,6 +1026,29 @@ class Gemma4ForConditionalGeneration(
         self.num_routed_experts = self.language_model.num_routed_experts
         self.num_expert_groups = self.language_model.num_expert_groups
         self.num_shared_experts = self.language_model.num_shared_experts
+        self.num_redundant_experts = self.language_model.num_redundant_experts
+
+    def set_eplb_state(
+        self,
+        expert_load_view: torch.Tensor,
+        logical_to_physical_map: torch.Tensor,
+        logical_replica_count: torch.Tensor,
+    ) -> None:
+        self.language_model.set_eplb_state(
+            expert_load_view, logical_to_physical_map, logical_replica_count
+        )
+        self.expert_weights = self.language_model.expert_weights
+
+    def update_physical_experts_metadata(
+        self, num_physical_experts: int, num_local_physical_experts: int
+    ) -> None:
+        self.language_model.update_physical_experts_metadata(
+            num_physical_experts, num_local_physical_experts
+        )
+        self.num_physical_experts = self.language_model.num_physical_experts
+        self.num_local_physical_experts = (
+            self.language_model.num_local_physical_experts
+        )
         self.num_redundant_experts = self.language_model.num_redundant_experts
 
     # ------------------------------------------------------------------ #
